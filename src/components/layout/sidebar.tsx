@@ -41,21 +41,53 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
 
-  const navigation = [
-    { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard, color: 'text-blue-600' },
-    { name: 'Khách Hàng', href: '/admin/customers', icon: Users, color: 'text-green-600' },
-    { name: 'Đơn Hàng', href: '/admin/orders', icon: ShoppingCart, color: 'text-purple-600' },
-    { name: 'Hợp Đồng', href: '/admin/contracts', icon: FileText, color: 'text-orange-600' },
-    { name: 'Hoá Đơn', href: '/admin/invoices', icon: FileText, color: 'text-amber-600' },
-    { name: 'Websites', href: '/admin/websites', icon: Globe, color: 'text-emerald-600' },
-    { name: 'Tên Miền', href: '/admin/domain', icon: Globe, color: 'text-cyan-600' },
-    { name: 'Hosting', href: '/admin/hosting', icon: Server, color: 'text-indigo-600' },
-    { name: 'VPS', href: '/admin/vps', icon: Server, color: 'text-pink-600' },
-    { name: 'Email', href: '/admin/email', icon: Mail, color: 'text-yellow-600' },
-    { name: 'Thành Viên', href: '/admin/users', icon: Shield, color: 'text-red-600' },
-    { name: 'Hồ Sơ', href: '/admin/profile', icon: User, color: 'text-teal-600' },
-    { name: 'Cài Đặt', href: '/admin/settings', icon: Settings, color: 'text-gray-600' },
-  ]
+type NavigationItem = {
+  name: string
+  href: string
+  icon: React.ComponentType<{ className?: string }>
+  color: string
+}
+
+type NavigationSection = {
+  label: string
+  items: NavigationItem[]
+}
+
+const navigationSections: NavigationSection[] = [
+  {
+    label: 'Tổng quan',
+    items: [
+      { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard, color: 'text-blue-600' },
+    ],
+  },
+  {
+    label: 'Khách hàng & giao dịch',
+    items: [
+      { name: 'Khách Hàng', href: '/admin/customers', icon: Users, color: 'text-green-600' },
+      { name: 'Đơn Hàng', href: '/admin/orders', icon: ShoppingCart, color: 'text-purple-600' },
+      { name: 'Hợp Đồng', href: '/admin/contracts', icon: FileText, color: 'text-orange-600' },
+      { name: 'Hoá Đơn', href: '/admin/invoices', icon: FileText, color: 'text-amber-600' },
+    ],
+  },
+  {
+    label: 'Hạ tầng & dịch vụ',
+    items: [
+      { name: 'Websites', href: '/admin/websites', icon: Globe, color: 'text-emerald-600' },
+      { name: 'Tên Miền', href: '/admin/domain', icon: Globe, color: 'text-cyan-600' },
+      { name: 'Hosting', href: '/admin/hosting', icon: Server, color: 'text-indigo-600' },
+      { name: 'VPS', href: '/admin/vps', icon: Server, color: 'text-pink-600' },
+      { name: 'Email', href: '/admin/email', icon: Mail, color: 'text-yellow-600' },
+    ],
+  },
+  {
+    label: 'Tài khoản & hệ thống',
+    items: [
+      { name: 'Thành Viên', href: '/admin/users', icon: Shield, color: 'text-red-600' },
+      { name: 'Hồ Sơ', href: '/admin/profile', icon: User, color: 'text-teal-600' },
+      { name: 'Cài Đặt', href: '/admin/settings', icon: Settings, color: 'text-gray-600' },
+    ],
+  },
+]
 
 interface SidebarProps {
   isOpen: boolean
@@ -118,17 +150,18 @@ export function AppSidebar({ isOpen, setIsOpen }: SidebarProps) {
   // Filter navigation items based on user role
   // Show "Thành Viên" menu for both ADMIN and USER roles
   // If session is loading, show all items (to prevent flash)
-  const filteredNavigation = navigation.filter((item) => {
-    if (item.href === '/admin/users') {
-      // Show "Thành Viên" menu for both ADMIN and USER
-      // If session is loading, hide it temporarily to be safe
-      if (status === 'loading') {
-        return false
-      }
-      return userRole === 'ADMIN' || userRole === 'USER'
-    }
-    return true
-  })
+  const filteredSections = navigationSections
+    .map((section) => ({
+      label: section.label,
+      items: section.items.filter((item) => {
+        if (item.href === '/admin/users') {
+          if (status === 'loading') return false
+          return userRole === 'ADMIN' || userRole === 'USER'
+        }
+        return true
+      }),
+    }))
+    .filter((section) => section.items.length > 0)
 
   // Logo component
   const LogoIcon = () => (
@@ -156,7 +189,7 @@ export function AppSidebar({ isOpen, setIsOpen }: SidebarProps) {
         )}
       >
         <SidebarRail className="border-r border-transparent" />
-        <SidebarHeader className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3">
+        <SidebarHeader className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4">
           <div className="flex w-full items-center justify-between gap-3">
             <div
               className={cn(
@@ -171,50 +204,65 @@ export function AppSidebar({ isOpen, setIsOpen }: SidebarProps) {
         </SidebarHeader>
 
         <SidebarContent className="px-2 py-4">
-          <nav className="space-y-1">
-            {filteredNavigation.map((item) => {
-              const isActive =
-                pathname === item.href ||
-                (item.href === '/admin/invoices' && pathname.startsWith('/admin/invoice/')) ||
-                (item.href === '/admin/contracts' &&
-                  (pathname.startsWith('/admin/contract/') || pathname.startsWith('/contract/')))
-              
-              return (
-                <div key={item.name} className="relative group">
-                  <Link
-                    ref={(el) => { itemRefs.current[item.name] = el }}
-                    href={item.href}
-                    className={cn(
-                      "flex items-center px-3 py-3 text-sm font-medium rounded-md transition-all duration-300 relative",
-                      isActive
-                        ? "bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700"
-                        : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-                    )}
-                    onClick={() => setIsOpen(false)}
-                    onMouseEnter={() => setHoveredItem(item.name)}
-                    onMouseLeave={() => setHoveredItem(null)}
-                  >
-                    <item.icon className={cn(
-                      "h-5 w-5 transition-all duration-300",
-                      isCollapsed ? "mx-auto" : "mr-3",
-                      isActive ? item.color : item.color,
-                      !isActive && `group-hover:opacity-80`
-                    )} />
-                    {!isCollapsed && (
-                      <span className="truncate">{item.name}</span>
-                    )}
-                  </Link>
-                  
-                  {/* Tooltip for collapsed state - using fixed positioning to escape overflow */}
-                  {isCollapsed && hoveredItem === item.name && itemRefs.current[item.name] && (
-                    <NavItemTooltip 
-                      text={item.name} 
-                      targetRef={{ current: itemRefs.current[item.name]! }}
-                    />
+          <nav className="space-y-6">
+            {filteredSections.map((section) => (
+              <div key={section.label} className="space-y-2">
+                <div
+                  className={cn(
+                    'px-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400 transition-all',
+                    isCollapsed ? 'sr-only' : 'opacity-80'
                   )}
+                >
+                  {section.label}
                 </div>
-              )
-            })}
+                <div className="space-y-1">
+                  {section.items.map((item) => {
+                    const isActive =
+                      pathname === item.href ||
+                      (item.href === '/admin/invoices' && pathname.startsWith('/admin/invoice/')) ||
+                      (item.href === '/admin/contracts' &&
+                        (pathname.startsWith('/admin/contract/') || pathname.startsWith('/contract/')))
+
+                    return (
+                      <div key={item.name} className="relative group">
+                        <Link
+                          ref={(el) => {
+                            itemRefs.current[item.name] = el
+                          }}
+                          href={item.href}
+                          className={cn(
+                            'flex items-center px-3 py-3 text-sm font-medium rounded-md transition-all duration-300 relative',
+                            isActive
+                              ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700'
+                              : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                          )}
+                          onClick={() => setIsOpen(false)}
+                          onMouseEnter={() => setHoveredItem(item.name)}
+                          onMouseLeave={() => setHoveredItem(null)}
+                        >
+                          <item.icon
+                            className={cn(
+                              'h-5 w-5 transition-all duration-300',
+                              isCollapsed ? 'mx-auto' : 'mr-3',
+                              item.color,
+                              !isActive && 'opacity-80 group-hover:opacity-100'
+                            )}
+                          />
+                          {!isCollapsed && <span className="truncate">{item.name}</span>}
+                        </Link>
+
+                        {isCollapsed && hoveredItem === item.name && itemRefs.current[item.name] && (
+                          <NavItemTooltip
+                            text={item.name}
+                            targetRef={{ current: itemRefs.current[item.name]! }}
+                          />
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
           </nav>
         </SidebarContent>
 
@@ -227,7 +275,7 @@ export function AppSidebar({ isOpen, setIsOpen }: SidebarProps) {
               <Button
                 variant="ghost"
                 className={cn(
-                  'w-full justify-start gap-3 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 h-auto border-none p-2 rounded-none',
+                  'w-full justify-start gap-3 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 h-auto border-none p-2',
                   isCollapsed && 'justify-center border-none bg-transparent hover:bg-transparent p-2'
                 )}
               >
