@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { format } from 'date-fns'
+import { format, parse } from 'date-fns'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import DashboardLayout from '@/components/layout/dashboard-layout'
@@ -75,7 +75,6 @@ export default function VPSPage() {
 
   const [newVPS, setNewVPS] = useState({
     planName: '',
-    ipAddress: '',
     cpu: 0,
     ram: 0,
     storage: 0,
@@ -166,7 +165,14 @@ export default function VPSPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ...newVPS,
+          planName: newVPS.planName,
+          cpu: newVPS.cpu,
+          ram: newVPS.ram,
+          storage: newVPS.storage,
+          bandwidth: newVPS.bandwidth,
+          price: newVPS.price,
+          os: newVPS.os,
+          customerId: newVPS.customerId,
           expiryDate: newVPS.expiryDate
             ? format(newVPS.expiryDate, 'yyyy-MM-dd')
             : null,
@@ -178,7 +184,6 @@ export default function VPSPage() {
         setIsCreateVPSDialogOpen(false)
         setNewVPS({
           planName: '',
-          ipAddress: '',
           cpu: 0,
           ram: 0,
           storage: 0,
@@ -214,7 +219,7 @@ export default function VPSPage() {
         body: JSON.stringify({
           id: editVPS.id,
           planName: editVPS.planName,
-          ipAddress: editVPS.ipAddress,
+          ...(editVPS.customerId && { ipAddress: editVPS.ipAddress }),
           cpu: editVPS.cpu,
           ram: editVPS.ram,
           storage: editVPS.storage,
@@ -223,7 +228,18 @@ export default function VPSPage() {
           status: editVPS.status,
           os: editVPS.os,
           customerId: editVPS.customerId,
-          expiryDate: editVPS.expiryDate,
+          ...(editVPS.customerId && {
+            createdAt: editVPS.createdAt
+              ? editVPS.createdAt.includes('T')
+                ? format(new Date(editVPS.createdAt), 'yyyy-MM-dd')
+                : editVPS.createdAt
+              : null,
+            expiryDate: editVPS.expiryDate
+              ? editVPS.expiryDate.includes('T')
+                ? format(new Date(editVPS.expiryDate), 'yyyy-MM-dd')
+                : editVPS.expiryDate
+              : null,
+          }),
         }),
       })
 
@@ -281,7 +297,6 @@ export default function VPSPage() {
 
   const filteredVPS = vps.filter(v =>
     v.planName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (v.ipAddress && v.ipAddress.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (v.os && v.os.toLowerCase().includes(searchTerm.toLowerCase()))
   )
   const filteredPurchased = purchasedVps.filter(v =>
@@ -376,14 +391,15 @@ export default function VPSPage() {
                   Thêm VPS
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[500px]">
-              <DialogHeader>
+              <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col p-0">
+              <DialogHeader className="px-6 pt-6 pb-4">
                 <DialogTitle>Thêm VPS Mới</DialogTitle>
                 <DialogDescription>
                   Nhập thông tin máy chủ ảo mới để tạo
                 </DialogDescription>
               </DialogHeader>
-              <div className="grid gap-4 py-4">
+              <div className="flex-1 overflow-y-auto px-6">
+                <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="planName" className="text-right">
                     Tên Gói
@@ -394,19 +410,6 @@ export default function VPSPage() {
                       placeholder="VPS Basic"
                       value={newVPS.planName}
                       onChange={(e) => setNewVPS({...newVPS, planName: e.target.value})}
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="ipAddress" className="text-right">
-                    IP Address
-                  </Label>
-                  <div className="col-span-3">
-                    <Input
-                      id="ipAddress"
-                      placeholder="192.168.1.100"
-                      value={newVPS.ipAddress}
-                      onChange={(e) => setNewVPS({...newVPS, ipAddress: e.target.value})}
                     />
                   </div>
                 </div>
@@ -509,8 +512,9 @@ export default function VPSPage() {
                     />
                   </div>
                 </div>
+                </div>
               </div>
-              <DialogFooter>
+              <DialogFooter className="px-6 pt-4 pb-6 border-t">
                 <Button variant="outline" onClick={() => setIsCreateVPSDialogOpen(false)}>
                   Hủy
                 </Button>
@@ -539,12 +543,13 @@ export default function VPSPage() {
                   Đăng ký VPS
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[600px]">
-                <DialogHeader>
+              <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col p-0">
+                <DialogHeader className="px-6 pt-6 pb-4">
                   <DialogTitle>Đăng ký VPS cho khách hàng</DialogTitle>
                   <DialogDescription>Nhập thông tin VPS và gán cho khách hàng</DialogDescription>
                 </DialogHeader>
-                <div className="grid gap-4 py-4">
+                <div className="flex-1 overflow-y-auto px-6">
+                  <div className="grid gap-4 py-4">
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label className="text-right">Tên Gói</Label>
                     <div className="col-span-3">
@@ -563,6 +568,17 @@ export default function VPSPage() {
                           ))}
                         </SelectContent>
                       </Select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="reg-vps-ip" className="text-right">IP Address</Label>
+                    <div className="col-span-3">
+                      <Input 
+                        id="reg-vps-ip" 
+                        value={registerVPS.ipAddress} 
+                        onChange={(e) => setRegisterVPS({...registerVPS, ipAddress: e.target.value})} 
+                        placeholder="192.168.1.100" 
+                      />
                     </div>
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
@@ -640,8 +656,9 @@ export default function VPSPage() {
                       />
                     </div>
                   </div>
+                  </div>
                 </div>
-                <DialogFooter>
+                <DialogFooter className="px-6 pt-4 pb-6 border-t">
                   <Button
                     variant="outline"
                     onClick={() => {
@@ -697,30 +714,33 @@ export default function VPSPage() {
 
         {/* View VPS Dialog */}
           <Dialog open={isViewVPSDialogOpen} onOpenChange={setIsViewVPSDialogOpen}>
-            <DialogContent className="sm:max-w-[600px]">
-              <DialogHeader>
+            <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col p-0">
+              <DialogHeader className="px-6 pt-6 pb-4">
                 <DialogTitle>Chi Tiết VPS</DialogTitle>
                 <DialogDescription>
                   Thông tin chi tiết về máy chủ ảo
                 </DialogDescription>
               </DialogHeader>
               {selectedVPS && (
-                <div className="grid gap-4 py-4">
+                <div className="flex-1 overflow-y-auto px-6">
+                  <div className="grid gap-4 py-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label className="font-medium mb-2 block">Tên Gói</Label>
                       <p className="text-sm text-gray-600">{selectedVPS.planName}</p>
                     </div>
-                    <div>
-                      <Label className="font-medium mb-2 block">IP Address</Label>
-                      <p className="text-sm text-gray-600">
-                        {selectedVPS.ipAddress ? (
-                          <code className="bg-gray-100 px-2 py-1 rounded">{selectedVPS.ipAddress}</code>
-                        ) : (
-                          'Chưa có'
-                        )}
-                      </p>
-                    </div>
+                    {selectedVPS.customerId && (
+                      <div>
+                        <Label className="font-medium mb-2 block">IP Address</Label>
+                        <p className="text-sm text-gray-600">
+                          {selectedVPS.ipAddress ? (
+                            <code className="bg-gray-100 px-2 py-1 rounded">{selectedVPS.ipAddress}</code>
+                          ) : (
+                            'Chưa có'
+                          )}
+                        </p>
+                      </div>
+                    )}
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -762,9 +782,10 @@ export default function VPSPage() {
                       <p className="text-sm text-gray-600">{formatDate(selectedVPS.expiryDate)}</p>
                     </div>
                   </div>
+                  </div>
                 </div>
               )}
-              <DialogFooter>
+              <DialogFooter className="px-6 pt-4 pb-6 border-t">
                 <Button variant="outline" onClick={() => setIsViewVPSDialogOpen(false)}>
                   Đóng
                 </Button>
@@ -775,15 +796,16 @@ export default function VPSPage() {
 
           {/* Edit VPS Dialog */}
           <Dialog open={isEditVPSDialogOpen} onOpenChange={setIsEditVPSDialogOpen}>
-            <DialogContent className="sm:max-w-[600px]">
-              <DialogHeader>
+            <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col p-0">
+              <DialogHeader className="px-6 pt-6 pb-4">
                 <DialogTitle>Chỉnh Sửa VPS</DialogTitle>
                 <DialogDescription>
                   Cập nhật thông tin máy chủ ảo
                 </DialogDescription>
               </DialogHeader>
               {editVPS && (
-                <div className="grid gap-4 py-4">
+                <div className="flex-1 overflow-y-auto px-6">
+                  <div className="grid gap-4 py-4">
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="edit-planName" className="text-right">
                       Tên Gói
@@ -796,18 +818,20 @@ export default function VPSPage() {
                       />
                     </div>
                   </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="edit-ipAddress" className="text-right">
-                      IP Address
-                    </Label>
-                    <div className="col-span-3">
-                      <Input
-                        id="edit-ipAddress"
-                        value={editVPS.ipAddress || ''}
-                        onChange={(e) => setEditVPS({...editVPS, ipAddress: e.target.value})}
-                      />
+                  {editVPS.customerId && (
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="edit-ipAddress" className="text-right">
+                        IP Address
+                      </Label>
+                      <div className="col-span-3">
+                        <Input
+                          id="edit-ipAddress"
+                          value={editVPS.ipAddress || ''}
+                          onChange={(e) => setEditVPS({...editVPS, ipAddress: e.target.value})}
+                        />
+                      </div>
                     </div>
-                  </div>
+                  )}
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="edit-cpu" className="text-right">
                       CPU (cores)
@@ -920,9 +944,58 @@ export default function VPSPage() {
                       />
                     </div>
                   </div>
+                  {editVPS.customerId && (
+                    <>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="edit-createdAt" className="text-right">
+                          Ngày Đăng Ký
+                        </Label>
+                        <div className="col-span-3">
+                          <DatePicker
+                            value={
+                              editVPS.createdAt
+                                ? editVPS.createdAt.includes('T')
+                                  ? new Date(editVPS.createdAt)
+                                  : parse(editVPS.createdAt, 'yyyy-MM-dd', new Date())
+                                : undefined
+                            }
+                            onChange={(date) =>
+                              setEditVPS({
+                                ...editVPS,
+                                createdAt: date ? format(date, 'yyyy-MM-dd') : '',
+                              })
+                            }
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="edit-expiryDate" className="text-right">
+                          Ngày Hết Hạn
+                        </Label>
+                        <div className="col-span-3">
+                          <DatePicker
+                            value={
+                              editVPS.expiryDate
+                                ? editVPS.expiryDate.includes('T')
+                                  ? new Date(editVPS.expiryDate)
+                                  : parse(editVPS.expiryDate, 'yyyy-MM-dd', new Date())
+                                : undefined
+                            }
+                            onChange={(date) =>
+                              setEditVPS({
+                                ...editVPS,
+                                expiryDate: date ? format(date, 'yyyy-MM-dd') : null,
+                              })
+                            }
+                          />
+                        </div>
+                      </div>
+                    </>
+                  )}
+                  </div>
                 </div>
               )}
-              <DialogFooter>
+              <DialogFooter className="px-6 pt-4 pb-6 border-t">
                 <Button variant="outline" onClick={() => setIsEditVPSDialogOpen(false)}>
                   Hủy
                 </Button>
@@ -942,21 +1015,23 @@ export default function VPSPage() {
 
           {/* Delete VPS Dialog */}
           <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-            <DialogContent className="sm:max-w-[400px]">
-              <DialogHeader>
+            <DialogContent className="sm:max-w-[400px] max-h-[90vh] flex flex-col p-0">
+              <DialogHeader className="px-6 pt-6 pb-4">
                 <DialogTitle>Xác Nhận Xóa VPS</DialogTitle>
                 <DialogDescription>
                   Bạn có chắc chắn muốn xóa VPS này không? Hành động này không thể hoàn tác.
                 </DialogDescription>
               </DialogHeader>
               {selectedVPS && (
-                <div className="py-4">
-                  <p className="text-sm text-gray-600">
-                    VPS: <span className="font-medium">{selectedVPS.planName}</span>
-                  </p>
+                <div className="flex-1 overflow-y-auto px-6">
+                  <div className="py-4">
+                    <p className="text-sm text-gray-600">
+                      VPS: <span className="font-medium">{selectedVPS.planName}</span>
+                    </p>
+                  </div>
                 </div>
               )}
-              <DialogFooter>
+              <DialogFooter className="px-6 pt-4 pb-6 border-t">
                 <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
                   Hủy
                 </Button>
@@ -1059,7 +1134,7 @@ export default function VPSPage() {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
-                    placeholder={activeTab === 'packages' ? 'Tìm kiếm VPS, IP hoặc hệ điều hành...' : 'Tìm VPS đã đăng ký...'}
+                    placeholder={activeTab === 'packages' ? 'Tìm kiếm VPS hoặc hệ điều hành...' : 'Tìm VPS đã đăng ký...'}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10"
@@ -1087,7 +1162,6 @@ export default function VPSPage() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Tên Gói</TableHead>
-                        <TableHead>IP Address</TableHead>
                         <TableHead>CPU</TableHead>
                         <TableHead>RAM</TableHead>
                         <TableHead>Storage</TableHead>
@@ -1101,7 +1175,6 @@ export default function VPSPage() {
                       {paginatedVPS.map((v) => (
                         <TableRow key={v.id}>
                           <TableCell className="font-medium">{v.planName}</TableCell>
-                          <TableCell>{v.ipAddress ? (<code className="bg-gray-100 px-2 py-1 rounded text-sm">{v.ipAddress}</code>) : ('Chưa có')}</TableCell>
                           <TableCell><div className="flex items-center space-x-1"><Cpu className="h-4 w-4 text-gray-500" /><span>{v.cpu} cores</span></div></TableCell>
                           <TableCell><div className="flex items-center space-x-1"><MemoryStick className="h-4 w-4 text-gray-500" /><span>{v.ram} GB</span></div></TableCell>
                           <TableCell><div className="flex items-center space-x-1"><HardDrive className="h-4 w-4 text-gray-500" /><span>{v.storage} GB</span></div></TableCell>
